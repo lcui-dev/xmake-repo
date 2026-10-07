@@ -1,0 +1,26 @@
+{
+  "lcui": {
+    "version": "3.0.0",
+    "commit": "0c8d150f812e482516bcf5748a8233fb8a54b34a"
+  },
+  "pandagl": {
+    "version": "1.0.0",
+    "commit": "301abb7f8bf1a72a29ecf383120cbec58f47cfce"
+  },
+  "yutil": {
+    "version": "1.0.0",
+    "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
+  },
+  "lcui-css": {
+    "version": "1.0.0",
+    "commit": "3a3a31a55b4abf504a08c90d3d0ef6999735b90a"
+  },
+  "lcui-ptk": {
+    "version": "1.0.0",
+    "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
+  },
+  "lcui-ctest": {
+    "version": "1.0.0",
+    "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
+  }
+}

@@ -1,0 +1,109 @@
+name: sync-and-test
+
+# Manually triggered in THIS registry repo. One-directional: it only READS the
+# LCUI source repo (commit resolution) and LCUI GitHub Releases (binary zips for
+# sha256). LCUI never writes back here. This job:
+#   1. (optional) record a new lcui release: version + per-platform binary shas +
+#      tag commit, and sync sub-lib versions/commits from LCUI develop,
+#   2. run the tool's unit tests,
+#   3. VERIFY every package is actually downloadable/installable from this registry.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lcui_tag:
+        description: "LCUI release tag to record (e.g. v3.1.0). Empty = do not touch lcui version/sha."
+        default: ""
+      sync_sublibs:
+        description: "Sync sub-library versions from LCUI develop (patch bump on change)"
+        type: boolean
+        default: true
+      commit:
+        description: "Commit + push changes back to this registry (main)"
+        type: boolean
+        default: false
+
+env:
+  LCUI: lc-soft/LCUI
+  REGISTRY: ${{ github.repository }}   # lc-soft/lcui-xmake-repo
+
+jobs:
+  update:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # one-way READ of LCUI: full history so update-versions can resolve per-path commits
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.LCUI }}
+          fetch-depth: 0
+          path: LCUI
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - name: Compute lcui binary shas (if releasing)
+        if: ${{ github.event.inputs.lcui_tag != '' }}
+        run: |
+          set -e
+          VER="${{ github.event.inputs.lcui_tag }}"; V="${VER#v}"
+          gh release download "$VER" -D dl -p 'lcui-*-windows-x64.zip' -p 'lcui-*-linux-x64.zip' || true
+          echo "SHA_WIN=$(sha256sum dl/lcui-$V-windows-x64.zip 2>/dev/null | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "SHA_LIN=$(sha256sum dl/lcui-$V-linux-x64.zip 2>/dev/null | cut -d' ' -f1)" >> "$GITHUB_ENV"
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+
+      - name: Update lcui release entry
+        if: ${{ github.event.inputs.lcui_tag != '' }}
+        run: |
+          node scripts/update-versions.mjs --source LCUI \
+            --pkg lcui --ver "${{ github.event.inputs.lcui_tag }}" --ref "${{ github.event.inputs.lcui_tag }}" \
+            --sha "windows-x64=$SHA_WIN" --sha "linux-x64=$SHA_LIN"
+
+      - name: Sync sub-library versions from LCUI
+        if: ${{ github.event.inputs.sync_sublibs == 'true' }}
+        run: |
+          for pkg in pandagl yutil lcui-css lcui-ptk lcui-ctest; do
+            node scripts/update-versions.mjs --source LCUI --pkg "$pkg"
+          done
+
+      - name: Unit tests
+        run: node --test scripts/
+
+      - name: Commit + push registry (opt-in)
+        if: ${{ github.event.inputs.commit == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@github.com"
+          git add packages/
+          git diff --cached --quiet || git commit -m "chore: sync package versions (${{ github.event.inputs.lcui_tag || 'sublibs' }})"
+          git push
+
+  # The core guarantee you asked for: can every package actually be downloaded?
+  install-each:
+    needs: update
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+        pkg: [lcui, yutil, pandagl, lcui-css, lcui-ptk, lcui-ctest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with: { xmake-version: latest }
+      - name: Resolve + download + build ${{ matrix.pkg }}
+        shell: bash
+        run: |
+          set -e
+          d=$(mktemp -d)
+          # add_repositories points at THIS registry's current commit via a local clone
+          reg="$PWD"
+          cat > "$d/xmake.lua" <<EOF
+          add_rules("mode.debug", "mode.release")
+          add_repositories("lcui-repo $reg")
+          add_requires("${{ matrix.pkg }}", {system=false})
+          target("probe"); set_kind("phony"); add_packages("${{ matrix.pkg }}")
+          EOF
+          xmake -P "$d" require -y
+          xmake -P "$d" require --info "${{ matrix.pkg }}" >/dev/null

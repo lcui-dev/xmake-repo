@@ -25,7 +25,7 @@
 
 | 事实 | 证据 |
 |---|---|
-| registry 只有 6 个包：`lcui`、`yutil`、`pandagl`、`lcui-css`、`lcui-ptk`、`lcui-ctest` | `packages/**/xmake.lua` |
+| registry 现有 6 个包：`lcui`、`yutil`、`pandagl`、`lcui-css`、`lcui-ptk`、`lcui-ctest` | `packages/**/xmake.lua` |
 | CI 单测步骤是 `node --test scripts/` | `.github/workflows/sync-and-test.yml:71` |
 | `install-each` job 矩阵 = 6 包 × {ubuntu-22.04, windows-latest}，只做 `require -y` + `require --info` | 同文件 `:83-109` |
 | 各包 `on_test` 从未执行 | 工作流无 `xmake require --test` |
@@ -116,7 +116,7 @@ end
 | `add_requires("repoB::zzztest")` | 强制指定仓库 ✓ |
 | 该包已安装在 `~/.xmake/packages` | 直接复用已安装的，**不再查仓库**（需 `xmake require --clean <pkg>` 才能切换） |
 
-xmake 官方 `xmake-repo` 现有 2032 个包。LCUI 的 target 名中只有 **`libui`** 与官方包名真实冲突（官方有 `libui`）；`libcss` / `libptk` / `libthread` / `libworker` / `librouter` / `libi18n` / `ctest` / `thread` / `worker` / `router` / `i18n` / `ui` 官方均未占用，但都是公共领域词汇。
+xmake 官方 `xmake-repo` 现有 2032 个包。`css` / `ptk` / `ctest` / `yutil` / `pandagl` / `lcui` **均未被官方占用**（已逐一核查）；LCUI 源码里的 target 名中只有 **`libui`** 与官方包名真实冲突（官方有 `libui`），但 registry 不暴露 `libui` 包，无实际冲突。
 
 ## 3. 目标与非目标
 
@@ -126,10 +126,11 @@ xmake 官方 `xmake-repo` 现有 2032 个包。LCUI 的 target 名中只有 **`l
 - G2 为每个包提供一个真实的 C 编译单元，在 CI 里验证「头文件能编译 + 符号能链接 + 间接依赖齐全」
 - G3 让 `lcui` 的 binary scheme 真正可用：LCUI CI 产出规范命名的二进制 zip 并上传，registry 能下载安装
 - G4 修正 4 个包里失效的 `on_test` 检查
+- G5 去掉子库包名的 `lcui-` 前缀，统一为裸名（`css` / `ptk` / `ctest`）
 
 ### 非目标
 
-- 不重命名任何包（`yutil`/`pandagl` 保持原名）
+- 不重命名 `yutil` / `pandagl`（保持原名）
 - 不改动子库头文件的安装路径（保持扁平根头布局）
 - 不改 LCUI 源码里的 C 代码、不改 ABI
 - 不把 `lcui` 包拆成多个包（保持 self-contained 单包形态）
@@ -148,14 +149,40 @@ tests/
     ├── lcui/main.c
     ├── yutil/main.c
     ├── pandagl/main.c
-    ├── lcui-css/main.c
-    ├── lcui-ptk/main.c
-    └── lcui-ctest/main.c
+    ├── css/main.c
+    ├── ptk/main.c
+    └── ctest/main.c
 ```
 
 `update-versions.test.mjs` 的 import 路径由 `./update-versions.mjs` 改为 `../scripts/update-versions.mjs`。
 
 `node --test tests/` 只会匹配 `*.test.mjs`，`tests/c/**.c` 不参与 Node 测试运行。
+
+#### 4.1.1a 包名去前缀：`lcui-css` → `css`
+
+三个子库包去掉 `lcui-` 前缀，统一为裸名。已核查 xmake 官方 `xmake-repo`（2032 个包）**未占用** `css` / `ptk` / `ctest` ✓
+
+需要同步改动的位置（registry 仓库内，共 6 处）：
+
+| 位置 | 现状 | 改为 |
+|---|---|---|
+| 目录 | `packages/l/lcui-css/` | `packages/c/css/` |
+| 目录 | `packages/l/lcui-ptk/` | `packages/p/ptk/` |
+| 目录 | `packages/l/lcui-ctest/` | `packages/c/ctest/` |
+| 包描述符首行 | `package("lcui-css")` | `package("css")` |
+| `packages/versions.json` 的 key | `"lcui-css"` | `"css"` |
+| `scripts/update-versions.mjs` 的 `PACKAGES` 映射 | key + `descriptor` 路径 | 同步改 |
+| CI 的子库同步循环 | `for pkg in pandagl yutil lcui-css lcui-ptk lcui-ctest` | `for pkg in pandagl yutil css ptk ctest` |
+| CI 的 `install-each` 矩阵 | `pkg: [lcui, yutil, pandagl, lcui-css, lcui-ptk, lcui-ctest]` | `pkg: [lcui, yutil, pandagl, css, ptk, ctest]` |
+| README 的包表格 | 旧名 | 新名 |
+
+> `packages/l/` 下改完后只剩 `lcui/`；`packages/c/` 为新建目录（放 `css` 与 `ctest`）；`packages/p/` 下有 `pandagl/` 与 `ptk/`。
+>
+> `scripts/update-versions.mjs` 的 `PACKAGES` 映射把「包名 → 描述符路径」硬编码在一起（`scripts/update-versions.mjs:10-17`），改名必须同步，否则脚本会抛 `unknown package`。
+>
+> 包描述符的 `on_install` 里执行的是 `xmake build libcss` / `libptk` / `ctest` —— 那是 **LCUI 源码里的 target 名**，与 registry 包名无关，**不需要改** ✓
+>
+> 改名是破坏性变更：`add_requires("lcui-css")` 将失效。需在 README 写明迁移说明。
 
 #### 4.1.2 C 冒烟测试的形态
 
@@ -168,9 +195,9 @@ tests/
 | `lcui` | `<LCUI/base.h>` | `lcui_get_version()` | `include/LCUI/base.h:19` |
 | `yutil` | `<yutil/yutil.h>` | `y_strdup("lcui")` | `lib/yutil/include/yutil/string.h:41` |
 | `pandagl` | `<pandagl/pandagl.h>` | `pd_canvas_init(&canvas)` | `lib/pandagl/include/pandagl/canvas.h:68` |
-| `lcui-css` | `<css.h>` | `css_init()` | `lib/css/include/css.h:29` |
-| `lcui-ptk` | `<ptk/ptk.h>` | `ptk_app_init(L"lcui-test")` | `lib/ptk/include/ptk/app.h:22` |
-| `lcui-ctest` | `<ctest.h>` | `ctest_equal_int("x", 1, 1)` | `lib/ctest/include/ctest.h:33` |
+| `css` | `<css.h>` | `css_init()` | `lib/css/include/css.h:29` |
+| `ptk` | `<ptk/ptk.h>` | `ptk_app_init(L"lcui-test")` | `lib/ptk/include/ptk/app.h:22` |
+| `ctest` | `<ctest.h>` | `ctest_equal_int("x", 1, 1)` | `lib/ctest/include/ctest.h:33` |
 
 **为什么 `lcui` 用 `LCUI/base.h` 而不是 `LCUI.h`**：`LCUI.h` 会拉入 10 个子库头，在 Part 3 完成前（子库头尚未合并进 lcui 包）根本编译不过；`LCUI/base.h` 只依赖同目录的 `LCUI/config.h`，任何 scheme 下都成立。
 
@@ -216,10 +243,10 @@ tests/
 
 | 包 | 现状 | 改为 | 理由 |
 |---|---|---|---|
-| `lcui-ptk` | `has_cfuncs("ptk_app_create", {includes = "ptk/ptk.h"})` | `has_cfuncs("ptk_app_init", {includes = "ptk/ptk.h"})` | `ptk_app_create` 不存在 |
+| `ptk` | `has_cfuncs("ptk_app_create", {includes = "ptk/ptk.h"})` | `has_cfuncs("ptk_app_init", {includes = "ptk/ptk.h"})` | `ptk_app_create` 不存在 |
 | `lcui` | `has_cfuncs("lcui_init", {includes = "LCUI.h"})` | `has_cfuncs("lcui_init", {includes = "LCUI/base.h"})` | `LCUI.h` 拉入子库头，单独装 lcui 包时编译不过 |
-| `lcui-css` | `has_cincludes("css.h")` | `has_cfuncs("css_init", {includes = "css.h"})` | 从「头在」升级到「符号可链接」 |
-| `lcui-ctest` | `has_cincludes("ctest.h")` | `has_cfuncs("ctest_equal_int", {includes = "ctest.h"})` | 同上 |
+| `css` | `has_cincludes("css.h")` | `has_cfuncs("css_init", {includes = "css.h"})` | 从「头在」升级到「符号可链接」 |
+| `ctest` | `has_cincludes("ctest.h")` | `has_cfuncs("ctest_equal_int", {includes = "ctest.h"})` | 同上 |
 
 > `on_test` 目前不在 CI 里执行。本设计不新增 `xmake require --test` 步骤 —— `has_cfuncs` 生成的探针程序与 `tests/c/*/main.c` 覆盖重叠，且 `require --test` 的语义（跑包自带的测试）在这些包上不存在。保留 `on_test` 作为包描述符的自描述信息并修正其中的错误符号。
 
@@ -227,6 +254,15 @@ tests/
 
 - 「Run the tooling tests locally with `node --test scripts/`」→ `node --test tests/`
 - 新增一段说明 `tests/c/**` 的作用：验证包安装后头文件可编译、符号可链接、间接依赖齐全；CI 中只编译链接不运行
+- 包表格里的名字更新为新名，并补一段**迁移说明**：
+
+  | 旧名 | 新名 |
+  |---|---|
+  | `lcui-css` | `css` |
+  | `lcui-ptk` | `ptk` |
+  | `lcui-ctest` | `ctest` |
+
+  `yutil` / `pandagl` / `lcui` 名称不变。
 
 ### 4.2 Part 2 · LCUI 侧：让 binary 包可用
 
@@ -313,7 +349,7 @@ registry 的 `on_install` 期望 zip 解压后顶层是 `include/` 和 `lib/`：
 
 | 决策 | 理由 |
 |---|---|
-| 不重命名包 | 用户判断：用了 lcui 的项目不会再装提供同名头文件的库。实测也证明项目级 registry 优先于官方全局仓库，同名包不会跑到官方去。 |
+| 子库包去前缀（`lcui-css`→`css`、`lcui-ptk`→`ptk`、`lcui-ctest`→`ctest`），`yutil`/`pandagl` 不动 | 用户判断：用了 lcui 的项目不会再装提供同名头文件的库。实测也证明项目级 registry 优先于官方全局仓库，同名包不会跑到官方去；且 `css`/`ptk`/`ctest` 官方均未占用。 |
 | 不改子库头文件路径 | 保持 `LCUI.h` 的伞形 include 写法不变，省掉约 550 处 include 改写，也避免与 LCUI 自己的 `include/LCUI/*.h` 撞名。 |
 | 头文件合并放在 `xmake.lua` 而非 CI 脚本 | 保证 binary / source 两种 scheme 布局一致（§4.2.1）。 |
 | CI 只编译链接，不运行 | ubuntu runner 无 X11 显示环境，`lcui_init` / `ptk_app_init` 行为不确定；编译链接已能覆盖头文件路径、符号导出、间接依赖三类问题。 |
@@ -324,17 +360,21 @@ registry 的 `on_install` 期望 zip 解压后顶层是 `include/` 和 `lib/`：
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
+| 改名后 `scripts/update-versions.mjs` 的 `PACKAGES` 映射漏改 | 同步脚本抛 `unknown package`，子库版本停止更新 | §4.1.1a 已列出全部 6 处同步点；改完立即跑 `node --test tests/` 与一次 dry-run 验证 |
+| 改名后 `versions.json` 的 key 与描述符 `package()` 名不一致 | xmake 解析到的包名对不上，版本记录错位 | 同上；CI 的 `Unit tests` 步骤覆盖 `update-versions` 的读写路径 |
 | release tag 与 `versions.json` 的 `lcui.version` 不一致 | registry URL 拼出的文件名与 release 资产对不上 → 404 | 两者都由同一个 tag 驱动（CI 用 `REL_VERSION`，registry 用 `update-versions.mjs --ver <tag>`）；发版流程里核对一次 |
 | `Compress-Archive` 在两平台产物结构不一致 | zip 顶层多出一层目录 → `on_install` 找不到 include/lib | §8 的验收步骤要求实际解压核对；必要时改用 `tar`/`7z` 或在 `on_install` 里加一层路径兼容 |
 | `add_headerfiles` 的跨目录 pattern 在 LCUI 全量子库上行为异常 | 部分子库头没被正确安装 | §4.2.1 的 pattern 写法已用等价结构实测验证；实施后用 `unzip -l` 列出全部头核对 |
 | lcui 合并包与独立子库包同时安装 → 两份 `yutil.h` | 头文件版本不一致，潜在 ABI 问题 | README 保留并强化「不要同时依赖」的警告，写明原因（合并包内的头是 LCUI 锁定版本，子库包独立版本） |
 | source scheme 从源码构建 LCUI 极慢 | CI 时长上升 | Part 3 完成后 lcui 走 binary；其它子库本来就是 source，CI 已如此 |
+| 裸名包（`css`/`ptk`/`ctest`）日后被 xmake 官方占用 | 官方仓库出现同名包 | 项目级 registry 优先（已实测）；必要时用 `add_requires("lcui-repo::css")` 显式指定，或届时改回前缀 |
 
 ## 7. 已知的遗留问题（不在本次范围）
 
 - **官方 `libui` 包与 LCUI 的 `libui` target 同名**：若将来把 ui 子库作为独立包发布，registry 里的包名会与官方冲突。缓解手段：项目级 registry 优先（实测），或用 `add_requires("lcui-repo::libui")` 显式指定，或改名加 `lcui-` 前缀。当前 registry 未暴露 `libui` 包，无实际冲突。
 - **`xmake require --test` 仍未纳入 CI**：各包的 `on_test` 不执行。可作为后续增强，届时 `has_cfuncs` 会真正验证包可用性。
 - **LCUI 的 `lib/*/xmake.lua` 里子库版本是 `0.1.0-a`**，与 registry 里子库包的 `1.0.0` 独立版本体系不同 —— 两套版本号并存，暂不统一。
+- **包改名是破坏性变更**：`add_requires("lcui-css")` / `("lcui-ptk")` / `("lcui-ctest")` 在改名后失效，需在 README 给出迁移说明（旧名 → 新名）。
 
 ## 8. 验证方式
 
@@ -383,6 +423,7 @@ xmake require --info lcui   # 应显示 binary scheme 命中，repo 指向 LCUI 
 
 ## 9. 实施顺序
 
-1. **Part 1**（registry 内，可立即验证）
-2. **Part 2**（LCUI 仓库，本地可验证 zip 结构）
-3. **Part 3**（依赖 LCUI 发版，最后收口）
+1. **Part 1a · 包改名**（registry 内，纯重命名 + 同步点更新，`node --test tests/` 验证）
+2. **Part 1b · 测试重组**（registry 内，可立即验证）
+3. **Part 2**（LCUI 仓库，本地可验证 zip 结构）
+4. **Part 3**（依赖 LCUI 发版，最后收口）

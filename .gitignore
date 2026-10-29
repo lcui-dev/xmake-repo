@@ -1,2 +1,6 @@
 node_modules/
 *.log
+
+# xmake build artifacts (produced by the smoke tests when run in-tree)
+.xmake/
+build/

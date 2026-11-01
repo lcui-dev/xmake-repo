@@ -265,9 +265,15 @@ The sub-library packages dropped the `lcui-` prefix:
 Run: `node --test "tests/**/*.test.mjs"`
 Expected: `# tests 9`、`# pass 9`、`# fail 0`
 
-- [ ] **Step 10: 确认全仓库没有残留的旧包名**
+- [ ] **Step 10: 确认 `packages/`、`scripts/`、`.github/`、`tests/` 没有残留的旧包名**
 
-Run: `git grep -n "lcui-css\|lcui-ptk\|lcui-ctest" -- . ':!docs/superpowers'`
+Run: `git grep -n "lcui-css\|lcui-ptk\|lcui-ctest" -- packages scripts .github tests`
+Expected: 无输出
+
+Run: `git grep -n "lcui-css\|lcui-ptk\|lcui-ctest" -- README.md`
+Expected: 只命中 `### Renamed packages` 迁移表的旧名列三行，正文与包表格里无命中
+
+Run: `git grep -n "lcui-css\|lcui-ptk\|lcui-ctest" -- . ':!docs/superpowers' ':!README.md'`
 Expected: 无输出（`docs/superpowers/` 下的 spec 与 plan 记录历史，允许保留）
 
 - [ ] **Step 11: 提交**
@@ -678,7 +684,7 @@ CI compiles and links the smoke target for every package on Linux and Windows.
 - [ ] **Step 3: 核对 README 里的包名与仓库一致**
 
 Run: `git grep -n "lcui-css\|lcui-ptk\|lcui-ctest" -- README.md`
-Expected: 无输出
+Expected: 只命中 `### Renamed packages` 迁移表的旧名列三行，其余段落无命中
 
 Run: `git grep -n "node --test" -- README.md`
 Expected: 出现的是 `node --test "tests/**/*.test.mjs"`，不是 `node --test scripts/`
@@ -695,7 +701,7 @@ git commit -m "docs: describe the new test layout and package renames"
 ## 完成标准
 
 - `node --test "tests/**/*.test.mjs"` 全绿（9 个测试）
-- `git grep "lcui-css\|lcui-ptk\|lcui-ctest"` 在 `packages/`、`scripts/`、`.github/`、`README.md`、`tests/` 下无命中
+- `git grep "lcui-css\|lcui-ptk\|lcui-ctest"` 在 `packages/`、`scripts/`、`.github/`、`tests/` 下无命中；在 `README.md` 里只命中 `### Renamed packages` 迁移表的旧名列
 - `tests/c/` 下有 6 个 `main.c`，每个对应一个包名
 - `tests/run-c-smoke.mjs` 存在且 CLI 行为符合 Task 3 的规定
 - workflow 的 `install-each` job 不含任何 xmake 命令，只调用 `node tests/run-c-smoke.mjs <pkg>`

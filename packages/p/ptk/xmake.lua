@@ -1,4 +1,4 @@
-package("lcui-ptk")
+package("ptk")
     set_homepage("https://github.com/lc-soft/LCUI")
     set_description("LCUI PTK - platform toolkit (message loop, window, timer, IME).")
     set_license("MIT")
@@ -10,8 +10,8 @@ package("lcui-ptk")
     end
 
     on_check(function (package)
-        assert(xmake.version():ge("3.0.7"), "package(lcui-ptk): requires xmake >= 3.0.7")
-        assert(package:is_plat("windows", "linux"), "package(lcui-ptk): only windows and linux are supported")
+        assert(xmake.version():ge("3.0.7"), "package(ptk): requires xmake >= 3.0.7")
+        assert(package:is_plat("windows", "linux"), "package(ptk): only windows and linux are supported")
     end)
 
     on_source(function (package)

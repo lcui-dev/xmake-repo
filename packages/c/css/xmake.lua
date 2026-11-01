@@ -1,4 +1,4 @@
-package("lcui-css")
+package("css")
     set_homepage("https://github.com/lc-soft/LCUI")
     set_description("LCUI CSS - a CSS parser and selector engine.")
     set_license("MIT")
@@ -7,8 +7,8 @@ package("lcui-css")
     add_deps("yutil")
 
     on_check(function (package)
-        assert(xmake.version():ge("3.0.7"), "package(lcui-css): requires xmake >= 3.0.7")
-        assert(package:is_plat("windows", "linux"), "package(lcui-css): only windows and linux are supported")
+        assert(xmake.version():ge("3.0.7"), "package(css): requires xmake >= 3.0.7")
+        assert(package:is_plat("windows", "linux"), "package(css): only windows and linux are supported")
     end)
 
     on_source(function (package)

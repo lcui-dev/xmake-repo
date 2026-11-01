@@ -1,4 +1,4 @@
-package("lcui-ctest")
+package("ctest")
     set_homepage("https://github.com/lc-soft/LCUI")
     set_description("LCUI ctest - a lightweight C test framework.")
     set_license("MIT")
@@ -7,8 +7,8 @@ package("lcui-ctest")
     add_deps("yutil")
 
     on_check(function (package)
-        assert(xmake.version():ge("3.0.7"), "package(lcui-ctest): requires xmake >= 3.0.7")
-        assert(package:is_plat("windows", "linux"), "package(lcui-ctest): only windows and linux are supported")
+        assert(xmake.version():ge("3.0.7"), "package(ctest): requires xmake >= 3.0.7")
+        assert(package:is_plat("windows", "linux"), "package(ctest): only windows and linux are supported")
     end)
 
     on_source(function (package)

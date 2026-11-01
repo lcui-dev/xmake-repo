@@ -63,7 +63,7 @@ jobs:
       - name: Sync sub-library versions from LCUI
         if: ${{ github.event.inputs.sync_sublibs == 'true' }}
         run: |
-          for pkg in pandagl yutil lcui-css lcui-ptk lcui-ctest; do
+          for pkg in pandagl yutil css ptk ctest; do
             node scripts/update-versions.mjs --source LCUI --pkg "$pkg"
           done
 
@@ -86,7 +86,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-latest]
-        pkg: [lcui, yutil, pandagl, lcui-css, lcui-ptk, lcui-ctest]
+        pkg: [lcui, yutil, pandagl, css, ptk, ctest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import {
     bumpSemver,
     applySourceUpdate,
     applyBinaryShaUpdate,
     decideBump,
     run,
+    PACKAGES,
 } from "../scripts/update-versions.mjs";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -106,4 +108,17 @@ test("run: lcui release sets stable=tag commit, develop=HEAD, applies binary sha
     const man = JSON.parse(readFileSync(join(dir, "packages", "versions.json"), "utf8"));
     assert.equal(man.lcui.version, "3.1.0");
     assert.equal(man.lcui.commit, "RELEASE_COMMIT");
+});
+
+test("registry package names stay in sync across manifest, PACKAGES map and descriptors", () => {
+    const root = fileURLToPath(new URL("..", import.meta.url));
+    const manifest = JSON.parse(readFileSync(join(root, "packages", "versions.json"), "utf8"));
+    const expected = ["css", "ctest", "lcui", "pandagl", "ptk", "yutil"];
+    assert.deepEqual(Object.keys(manifest).sort(), expected);
+    assert.deepEqual(Object.keys(PACKAGES).sort(), expected);
+    for (const [name, meta] of Object.entries(PACKAGES)) {
+        assert.equal(meta.descriptor, `packages/${name[0]}/${name}/xmake.lua`);
+        const desc = readFileSync(join(root, meta.descriptor), "utf8");
+        assert.match(desc, new RegExp(`^package\\("${name}"\\)`, "m"), `${meta.descriptor} must declare package("${name}")`);
+    }
 });

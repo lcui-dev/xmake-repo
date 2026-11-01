@@ -11,9 +11,9 @@ export const PACKAGES = {
     "lcui":       { descriptor: "packages/l/lcui/xmake.lua",       srcPath: null,       hasBinary: true  },
     "pandagl":    { descriptor: "packages/p/pandagl/xmake.lua",    srcPath: "lib/pandagl", hasBinary: false },
     "yutil":      { descriptor: "packages/y/yutil/xmake.lua",      srcPath: "lib/yutil",   hasBinary: false },
-    "lcui-css":   { descriptor: "packages/l/lcui-css/xmake.lua",   srcPath: "lib/css",     hasBinary: false },
-    "lcui-ptk":   { descriptor: "packages/l/lcui-ptk/xmake.lua",   srcPath: "lib/ptk",     hasBinary: false },
-    "lcui-ctest": { descriptor: "packages/l/lcui-ctest/xmake.lua", srcPath: "lib/ctest",   hasBinary: false },
+    "css":      { descriptor: "packages/c/css/xmake.lua",      srcPath: "lib/css",     hasBinary: false },
+    "ptk":      { descriptor: "packages/p/ptk/xmake.lua",      srcPath: "lib/ptk",     hasBinary: false },
+    "ctest":    { descriptor: "packages/c/ctest/xmake.lua",    srcPath: "lib/ctest",   hasBinary: false },
 };
 
 export function bumpSemver(version, level) {

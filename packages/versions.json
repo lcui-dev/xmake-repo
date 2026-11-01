@@ -11,15 +11,15 @@
     "version": "1.0.0",
     "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
   },
-  "lcui-css": {
+  "css": {
     "version": "1.0.0",
     "commit": "3a3a31a55b4abf504a08c90d3d0ef6999735b90a"
   },
-  "lcui-ptk": {
+  "ptk": {
     "version": "1.0.0",
     "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
   },
-  "lcui-ctest": {
+  "ctest": {
     "version": "1.0.0",
     "commit": "3801fdc10fcad7b0d918c4d3b28ae6b6fc2b5f4d"
   }

@@ -20,11 +20,23 @@ add_requires("pandagl 1.0.0")  -- source-only, independently versioned
 | Package | Schemes | Versioning |
 |---|---|---|
 | `lcui` | binary + source | lockstep with LCUI release tags (merged self-contained `lcui.lib`) |
-| `pandagl`, `yutil`, `lcui-css`, `lcui-ptk`, `lcui-ctest` | source only | **independent**, pinned to the last LCUI commit that changed that `lib/<dir>` |
+| `pandagl`, `yutil`, `css`, `ptk`, `ctest` | source only | **independent**, pinned to the last LCUI commit that changed that `lib/<dir>` |
 
 `lcui` is self-contained; do NOT also depend on the sub-library packages in one
 target (duplicate symbols). Sub-library packages are for consumers of a single
 library.
+
+### Renamed packages
+
+The sub-library packages dropped the `lcui-` prefix:
+
+| Old name | New name |
+|---|---|
+| `lcui-css` | `css` |
+| `lcui-ptk` | `ptk` |
+| `lcui-ctest` | `ctest` |
+
+`lcui`, `yutil` and `pandagl` are unchanged. Update your `add_requires(...)` calls.
 
 ## Version manifest
 

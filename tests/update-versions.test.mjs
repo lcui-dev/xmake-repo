@@ -6,7 +6,7 @@ import {
     applyBinaryShaUpdate,
     decideBump,
     run,
-} from "./update-versions.mjs";
+} from "../scripts/update-versions.mjs";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

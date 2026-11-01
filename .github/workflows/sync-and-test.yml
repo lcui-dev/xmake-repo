@@ -68,7 +68,7 @@ jobs:
           done
 
       - name: Unit tests
-        run: node --test scripts/
+        run: node --test "tests/**/*.test.mjs"
 
       - name: Commit + push registry (opt-in)
         if: ${{ github.event.inputs.commit == 'true' }}

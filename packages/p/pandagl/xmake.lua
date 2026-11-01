@@ -32,5 +32,5 @@ package("pandagl")
     end)
 
     on_test(function (package)
-        assert(package:has_cfuncs("pd_canvas_init", {includes = "pandagl/pandagl.h"}))
+        assert(package:has_cfuncs("pd_canvas_init", {includes = "pandagl.h"}))
     end)

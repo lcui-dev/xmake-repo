@@ -24,5 +24,5 @@ package("css")
     end)
 
     on_test(function (package)
-        assert(package:has_cincludes("css.h"))
+        assert(package:has_cfuncs("css_init", {includes = "css.h"}))
     end)

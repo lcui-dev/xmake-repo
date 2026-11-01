@@ -24,5 +24,5 @@ package("ctest")
     end)
 
     on_test(function (package)
-        assert(package:has_cincludes("ctest.h"))
+        assert(package:has_cfuncs("ctest_equal_int", {includes = "ctest.h"}))
     end)

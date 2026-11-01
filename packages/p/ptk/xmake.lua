@@ -34,5 +34,5 @@ package("ptk")
     end)
 
     on_test(function (package)
-        assert(package:has_cfuncs("ptk_app_create", {includes = "ptk/ptk.h"}))
+        assert(package:has_cfuncs("ptk_app_init", {includes = "ptk.h"}))
     end)

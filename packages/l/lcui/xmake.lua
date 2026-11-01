@@ -59,5 +59,5 @@ package("lcui")
     end)
 
     on_test(function (package)
-        assert(package:has_cfuncs("lcui_init", {includes = "LCUI.h"}))
+        assert(package:has_cfuncs("lcui_init", {includes = "LCUI/base.h"}))
     end)

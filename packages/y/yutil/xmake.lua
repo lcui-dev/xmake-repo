@@ -23,5 +23,5 @@ package("yutil")
     end)
 
     on_test(function (package)
-        assert(package:has_cfuncs("y_strdup", {includes = "yutil/yutil.h"}))
+        assert(package:has_cfuncs("y_strdup", {includes = "yutil.h"}))
     end)

@@ -69,6 +69,27 @@ Rules the tool enforces:
 - `lcui` binary alias shas come from CI after the zip is uploaded to GitHub
   Releases (`--sha`); sub-libs have no binary.
 
+## Tests
+
+`tests/` holds two kinds of checks:
+
+- `tests/update-versions.test.mjs` — unit tests for the version-sync tooling.
+  Run them with `node --test "tests/**/*.test.mjs"`.
+- `tests/c/<pkg>/main.c` — one C translation unit per package. It includes the
+  package's public headers and calls one public function, so compiling and
+  linking it proves the installed headers are reachable, the symbols are
+  exported, and the transitive dependencies are complete. The tests are never
+  executed: `lcui_init()` and `ptk_app_init()` need a display server.
+
+Run them all with:
+
+```bash
+node tests/run-c-smoke.mjs          # every package
+node tests/run-c-smoke.mjs yutil    # one package
+```
+
+CI compiles and links the smoke target for every package on Linux and Windows.
+
 ## Dependency direction
 
 This repo depends **one-way** on LCUI: it reads LCUI (source commits + its GitHub
@@ -81,4 +102,4 @@ descriptors, runs the unit tests, and **verifies every package is actually
 downloadable/installable** (linux + windows matrix). It only pushes back here
 (opt-in `commit` input) — so it needs no LCUI credentials.
 
-Run the tooling tests locally with `node --test scripts/`.
+Run the tooling tests locally with `node --test "tests/**/*.test.mjs"`.

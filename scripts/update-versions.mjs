@@ -16,6 +16,13 @@ export const PACKAGES = {
     "ctest":    { descriptor: "packages/c/ctest/xmake.lua",    srcPath: "lib/ctest",   hasBinary: false },
 };
 
+// Release tags are written as "v3.1.0" but the package version must be the bare
+// semver: it ends up in the binary download URL
+// (lcui-<version>-<plat>-<arch>.zip) and in the release asset name.
+export function normalizeVersion(version) {
+    return String(version).replace(/^v/, "");
+}
+
 export function bumpSemver(version, level) {
     const m = String(version).match(/^(\d+)\.(\d+)\.(\d+)/);
     if (!m) throw new Error(`cannot bump non-semver version: ${version}`);
@@ -112,7 +119,7 @@ export function run({ git, fs, cwd = process.cwd(), argv = [] }) {
         const pathCommit = meta.srcPath ? git(args.source, ["log", "-n1", "--format=%H", "--", meta.srcPath]) : null;
         const releaseCommit = git(args.source, ["rev-parse", args.ref || "HEAD"]);
         let version, commit;
-        if (args.pkg && args.ver) { version = args.ver; commit = releaseCommit; } // explicit release (lcui tag)
+        if (args.pkg && args.ver) { version = normalizeVersion(args.ver); commit = releaseCommit; } // explicit release (lcui tag)
         else {
             const d = decideBump({ recordedCommit: cur.commit, resolvedCommit: pathCommit, level: args.bump });
             if (!d.changed) { results.push({ pkg, skipped: true }); continue; }

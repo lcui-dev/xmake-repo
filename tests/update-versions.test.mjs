@@ -7,6 +7,7 @@ import {
     applyBinaryShaUpdate,
     decideBump,
     run,
+    normalizeVersion,
     PACKAGES,
 } from "../scripts/update-versions.mjs";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -108,6 +109,12 @@ test("run: lcui release sets stable=tag commit, develop=HEAD, applies binary sha
     const man = JSON.parse(readFileSync(join(dir, "packages", "versions.json"), "utf8"));
     assert.equal(man.lcui.version, "3.1.0");
     assert.equal(man.lcui.commit, "RELEASE_COMMIT");
+});
+
+test("normalizeVersion strips a leading v from release tags", () => {
+    assert.equal(normalizeVersion("v3.1.0"), "3.1.0");
+    assert.equal(normalizeVersion("3.1.0"), "3.1.0");
+    assert.equal(normalizeVersion("v3.1.0-rc1"), "3.1.0-rc1");
 });
 
 test("registry package names stay in sync across manifest, PACKAGES map and descriptors", () => {

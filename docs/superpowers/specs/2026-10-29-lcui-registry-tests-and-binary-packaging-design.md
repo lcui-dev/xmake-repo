@@ -48,7 +48,7 @@
 
 ```c
 #include <yutil.h>   <css.h>      <pandagl.h> <ui.h>      <ui_cursor.h>
-#include <ui_server.h> <ui_xml.h> <thread.h> <ptk.h>    <worker.h>
+#include <ui_server.h> <ui_xml.h> <thread.h> <ptk.h>
 #include <LCUI/worker.h> <LCUI/app.h> <LCUI/ui.h> <LCUI/widgets.h>
 #include <LCUI/settings.h> <LCUI/base.h>
 ```
@@ -80,14 +80,17 @@
 | `libptk` | `include/ptk.h`, `include/(ptk/*.h)` | `include/ptk.h` + `include/ptk/**` |
 | `ctest` | `include/ctest.h` | `include/ctest.h` |
 | `libthread` | `include/thread.h` | `include/thread.h` |
-| `libworker` | `include/worker.h` | `include/worker.h` |
-| `librouter` | `include/router.h` | `include/router.h` |
+| `librouter` | `include/router.h`, `include/(router/*.h)` | `include/router.h` + `include/router/**` |
 | `libi18n` | `include/i18n.h` | `include/i18n.h` |
 | `libui` | `include/ui.h`, `include/(ui/*.h)` | `include/ui.h` + `include/ui/**` |
-| `libui-cursor` | `include/ui_cursor.h`, `include/(ui_cursor/*.h)` | `include/ui_cursor.h` + `include/ui_cursor/**` |
-| `libui-server` | `include/ui_server.h`, `include/(ui_server/*.h)` | `include/ui_server.h` + `include/ui_server/**` |
+| `libui-server` | `include/ui_server.h`, `include/ui_cursor.h`, `include/(ui_server/*.h)` | `include/ui_server.h` + `include/ui_cursor.h` + `include/ui_server/**` |
 | `libui-xml` | `include/ui_xml.h`, `include/(ui_xml/*.h)` | `include/ui_xml.h` + `include/ui_xml/**` |
-| `libui-router` | `include/ui_router.h` | `include/ui_router.h` |
+
+> **2026-11-02 更新**：上表已按 LCUI 的 `plan/xmake-repo` 分支上完成的一轮子库合并重写。
+> `libui-cursor` 并入 `libui-server`（现在由后者同时安装 `ui_cursor.h`）；
+> `libui-router` 从构建中移除（`LCUI.h` 不再 include `<ui_router.h>`）；
+> `libworker` 整个目录已删除（`LCUI.h` 不再 include `<worker.h>`）。
+> `lib/ui-router/` 目录仍残留在工作树里，但只含一个生成的 `config.h` 且未被 git 跟踪 —— **它不是子库**。
 
 **全部与 `LCUI.h` 里的扁平 include 名严丝合缝** —— 说明伞形头从设计之初就假定「所有子库头文件合并在同一个 include 根目录」，缺的只是打包这一步。
 
@@ -127,14 +130,14 @@ xmake 官方 `xmake-repo` 现有 2032 个包。`css` / `ptk` / `ctest` / `yutil`
 | F1 | **xmake 只把 argv[1] 当任务名**。`xmake -P d build smoke` 会报 `error: 'build' is not a valid target name for this project.`；正确写法是 `xmake build -P d smoke` | 实测 4 种写法 | 现有 workflow 的 `xmake -P "$d" require -y` **本来就是坏的** —— 这解释了「CI 从未真正编译过任何东西」 |
 | F2 | **Node 24 的 `node --test <目录>` 不工作**，报 `Cannot find module '...\scripts'`。可用形式：`node --test`（无参数，自动发现）或 `node --test "tests/**/*.test.mjs"`（glob） | 实测 5 种写法 | 现有 workflow 的 `node --test scripts/` **也是坏的**；spec 初稿写的 `node --test tests/` 同样会坏 |
 | F3 | **安装后的头文件是「扁平根头」**：`include/yutil.h` + `include/yutil/*.h`，**不存在** `include/yutil/yutil.h` | 用等价工程实测：`<yutil.h>` 编译通过，`<yutil/yutil.h>` 报 `C1083` | spec 初稿里 3 个包的 include 路径是错的；现有 `on_test` 里 yutil/pandagl/ptk 三处路径也是错的 |
-| F4 | **`lcui.lib` 目前不是 self-contained**：LCUI 的 `xmake.lua` 里没有 `build.merge_archive`，`lcui.lib` 只有 200KB（子库各 8KB–400KB，单独存在） | `build/packages/**` 实际产物 | registry 描述符里「lcui.lib is self-contained」的注释与现实不符；binary 包必须解决这一点，否则消费方链接必然缺符号 |
-| F5 | **`set_policy("build.merge_archive", true)` 可用**：`lcui.lib` 从 200KB 变成 2.3MB，消费方链接 `lcui_get_version()` 时 LCUI 内部符号（`ptk_app_exit`/`logger_log`/`list_create`…）全部解析，只剩 freetype/libpng 等**外部**依赖未解析 —— 而这些外部依赖 registry 的 `add_deps(...)` 已经声明了 | 在 LCUI HEAD 的独立 worktree 里实测 | Part 2 必须加上这条策略 |
+| F4 | **`lcui.lib` 目前不是 self-contained**：LCUI 的 `xmake.lua` 里没有 `build.merge_archive`，`lcui.lib` 只有约 724KB（741,278 字节；子库各 8KB–475KB，单独存在） | `build/packages/**` 实际产物 | registry 描述符里「lcui.lib is self-contained」的注释与现实不符；binary 包必须解决这一点，否则消费方链接必然缺符号 |
+| F5 | **`set_policy("build.merge_archive", true)` 可用**：`lcui.lib` 从约 724KB 变成 **3.1MB**，消费方链接 `lcui_get_version()` 时 LCUI 内部符号（`ptk_app_exit`/`logger_log`/`list_create`…）全部解析，只剩 freetype/libpng 等**外部**依赖未解析 —— 而这些外部依赖 registry 的 `add_deps(...)` 已经声明了 | 在 `plan/xmake-repo` 的 `tidy-cactus` 工作树里实测 | Part 2 必须加上这条策略 |
 | F6 | **workflow 给 `update-versions.mjs` 传的 `--ver` 是带 `v` 的 tag**（`--ver "${{ github.event.inputs.lcui_tag }}"`，而同一行里算 sha 时用的是去掉 `v` 的 `$V`） | 读 `sync-and-test.yml:56-61` | 版本会变成 `v3.1.0`，binary URL 拼成 `download/vv3.1.0/lcui-v3.1.0-windows-x64.zip` —— 与 CI 实际产出的 `lcui-3.1.0-windows-x64.zip` 对不上，必然 404 |
 
-**另有一条环境事实**：LCUI 仓库的工作树当前处于重构中间态（`lib/ui-cursor` 与 `lib/ui-router` 正在被合并进 `lib/ui-server` 与 `src/widgets/`，但根 `xmake.lua` 还没跟上，工作树**构建不过**）。因此：
+**环境事实（2026-11-02 更新）**：子库合并已经落地到 LCUI 的 `plan/xmake-repo` 分支（工作树 `C:/Users/LC-So/.local/share/opencode/worktree/4e73da/tidy-cactus`），该树可以正常 configure 与 build（实测 `xmake build lcui` → `build ok`）。因此：
 
-- Part 2 的改动必须在 **LCUI HEAD（`9af1bf45f`）的独立 worktree** 里做与验证 —— 该 worktree 可以正常 configure 与 build（实测 7 秒完成链接）
-- 头文件合并**不能硬编码 13 条路径**：用循环遍历 `lib/*` 目录（见 §4.2.1），才能在子库增减时自动适配
+- Part 2 的改动**直接在那个工作树里做**，不创建、不销毁 worktree
+- 头文件合并**不能硬编码子库清单**：用循环遍历 `lib/*` 目录，判据是「该目录下有 `xmake.lua`」（见 §4.2.1）—— 只有 `include/` 残留、没有 `xmake.lua` 的目录（如 `lib/ui-router`）不算子库
 
 ## 3. 目标与非目标
 
@@ -330,16 +333,19 @@ workflow 侧相应变成：
 ```lua
     -- lcui 是 self-contained 包：伞形头 LCUI.h 会 include 各子库的扁平头名，
     -- 因此这些头文件必须与 lcui 一起安装，消费方才能 #include <LCUI.h>。
-    -- 用循环遍历 lib/* 而不是写死 13 条路径：LCUI 的子库目录正在重构
-    -- （ui-cursor / ui-router 被合并进 ui-server / src/widgets），
-    -- 循环能在子库增减时自动适配。
+    -- 用循环遍历 lib/* 而不是写死子库清单：LCUI 的子库在持续合并
+    -- （ui-cursor 已并入 ui-server，ui-router 与 worker 已移除），
+    -- 循环能在子库增减时自动适配。判据是「目录下有 xmake.lua」——
+    -- lib/ui-router 只是残留目录，含一个生成的 config.h，不是子库。
     for _, subdir in ipairs(os.filedirs("lib/*")) do
         local incdir = subdir:gsub("\\", "/") .. "/include"
-        if os.isdir(incdir) then
+        if os.isfile(subdir .. "/xmake.lua") and os.isdir(incdir) then
             add_headerfiles(incdir .. "/(**.h)")
         end
     end
 ```
+
+**为什么判据是 `xmake.lua` 而不是 `include/`**：实测 `lib/ui-router/` 目录仍在工作树里（只含生成的 `include/ui_router/config.h`，且未被 git 跟踪）。若只判 `os.isdir(incdir)`，循环会把 `include/ui_router/config.h` 也装进产物 —— 虽然无害，但会把一个已废弃的库名重新引入安装树。
 
 **为什么用 `lib/<x>/include/(**.h)` 而不是 `lib/<x>/include/(<x>.h)` + `lib/<x>/include/(<x>/*.h)` 两条**：`**.h` 会捕获 `include/` 之下的**完整相对路径**，因此 `lib/yutil/include/yutil.h` → `include/yutil.h`、`lib/yutil/include/yutil/string.h` → `include/yutil/string.h`，一条就够，且不需要知道子库叫什么名字。
 
@@ -347,15 +353,16 @@ workflow 侧相应变成：
 
 **为什么必须用 `os.filedirs` 而不是 `os.files`**：`os.filedirs("lib/*")` 返回**带路径的目录名**（`lib\css`），不是 basename，直接拼接会得到 `lib/lib\css/include/...`。循环里用 `subdir:gsub("\\", "/")` 统一成正斜杠。
 
-**已实测验证的安装结果**（在 LCUI HEAD 的独立 worktree 里跑 `xmake install -o inst lcui`）：
+**已实测验证的安装结果**（2026-11-02，在 `plan/xmake-repo` 的 `tidy-cactus` 工作树里跑 `xmake install -o inst lcui`）：
 
 ```
-inst/include/   css.h  ctest.h  i18n.h  LCUI.h  pandagl.h  ptk.h  router.h
-                thread.h  ui.h  ui_cursor.h  ui_router.h  ui_server.h  ui_xml.h
-                worker.h  yutil.h  + 子目录 css/ LCUI/ pandagl/ ptk/ router/ ui/
-                ui_server/ ui_xml/ worker/ yutil/
-inst/lib/       lcui.lib
+inst/include/   LCUI.h  css.h  ctest.h  i18n.h  pandagl.h  ptk.h  router.h
+                thread.h  ui.h  ui_cursor.h  ui_server.h  ui_xml.h  yutil.h
+                + 子目录 css/ LCUI/ pandagl/ ptk/ router/ ui/ ui_server/ ui_xml/ yutil/
+inst/lib/       lcui.lib   (3,113,362 字节；未合并时 741,278 字节)
 ```
+
+**没有** `ui_router.h` 或 `ui_router/`、**没有** `worker.h` —— 那两个库已不存在。
 
 并且用这份布局编译 `#include <LCUI.h>` + 链接 `inst/lib/lcui.lib` **通过**（只剩 freetype/libpng 等外部依赖未解析，那些由 registry 的 `add_deps(...)` 负责）。
 
@@ -367,7 +374,7 @@ inst/lib/       lcui.lib
 
 #### 4.2.1a `xmake.lua`：`lcui.lib` 必须是 self-contained
 
-registry 的描述符写着「lcui.lib is self-contained (all internal sub-libs merged via build.merge_archive)」，但 LCUI 的 `xmake.lua` **从来没有设置这条策略** —— 实测 `lcui.lib` 只有 200KB，而子库各 8KB–400KB 单独存在。消费方链接 `lcui.lib` 会得到一串 `LNK2019`：`ptk_app_exit`、`logger_log`、`list_create`……
+registry 的描述符写着「lcui.lib is self-contained (all internal sub-libs merged via build.merge_archive)」，但 LCUI 的 `xmake.lua` **从来没有设置这条策略** —— 实测 `lcui.lib` 只有约 724KB，而子库各 8KB–475KB 单独存在。消费方链接 `lcui.lib` 会得到一串 `LNK2019`：`ptk_app_exit`、`logger_log`、`list_create`……
 
 修法是在 `target("lcui")` 里加：
 
@@ -375,7 +382,7 @@ registry 的描述符写着「lcui.lib is self-contained (all internal sub-libs 
     set_policy("build.merge_archive", true)
 ```
 
-**已实测验证**（LCUI HEAD worktree）：加上后构建日志出现 `merging.release lcui.lib`，`lcui.lib` 从 200KB 变成 **2.3MB**；消费方链接 `lcui_get_version()` 时 LCUI 内部符号全部解析，只剩 freetype/libpng/libjpeg/libyaml/libxml2/libomp 这些**外部**依赖未解析 —— 而它们 registry 的 `add_deps(...)` 已经声明了。
+**已实测验证**（LCUI HEAD worktree）：加上后构建日志出现 `merging.release lcui.lib`，`lcui.lib` 从约 724KB 变成 **3.1MB**（3,113,362 字节）；消费方链接 `lcui_get_version()` 时 LCUI 内部符号全部解析，只剩 freetype/libpng/libjpeg/libyaml/libxml2/libomp 这些**外部**依赖未解析 —— 而它们 registry 的 `add_deps(...)` 已经声明了。
 
 `build.merge_archive` 是 xmake 的内置策略（`core/project/policy.lua`，默认 `false`），通过 `rules/utils/merge_archive` 实现，xmake >= 2.8.1 可用。
 
@@ -469,12 +476,12 @@ node scripts/update-versions.mjs --source LCUI \
 | 改名后 `versions.json` 的 key 与描述符 `package()` 名不一致 | xmake 解析到的包名对不上，版本记录错位 | 同上 |
 | **CI 里 xmake 的任务名写错位置**（`xmake -P d build smoke`） | 冒烟测试一步都跑不起来 | F1 已实测；`tests/run-c-smoke.mjs` 把命令拼在一处，workflow 文本里不再出现 xmake 命令 |
 | **CI 里 Node 的测试参数写成目录**（`node --test tests/`） | 单测步骤直接失败 | F2 已实测；改用 glob 形式 `node --test "tests/**/*.test.mjs"` |
-| **`lcui.lib` 不是 self-contained** | binary 包装好了但消费方链接必然缺符号 | §4.2.1a 的 `set_policy("build.merge_archive", true)`，已实测（200KB → 2.3MB） |
+| **`lcui.lib` 不是 self-contained** | binary 包装好了但消费方链接必然缺符号 | §4.2.1a 的 `set_policy("build.merge_archive", true)`，已实测（724KB → 3.1MB） |
 | **`--ver` 收到带 `v` 的 tag** | binary URL 拼成 `download/vv3.1.0/...`，必然 404 | F6；§4.3 要求在 `update-versions.mjs` 里规范化，并配单元测试 |
 | release tag 与 `versions.json` 的 `lcui.version` 不一致 | registry URL 拼出的文件名与 release 资产对不上 → 404 | 两者都由同一个 tag 驱动（CI 用 `REL_VERSION`，registry 用 `update-versions.mjs --ver <tag>`）；发版流程里核对一次 |
 | `Compress-Archive` 在两平台产物结构不一致 | zip 顶层多出一层目录 → `on_install` 找不到 include/lib | §8 的验收步骤要求实际解压核对；必要时改用 `tar`/`7z` 或在 `on_install` 里加一层路径兼容 |
 | `add_headerfiles` 的循环写法在某个子库上行为异常 | 部分子库头没被正确安装 | §4.2.1 的写法已用等价结构 + 真实 LCUI worktree 实测；实施后用 `unzip -l` 列出全部头核对 |
-| LCUI 工作树处于重构中间态（构建不过） | Part 2 无法在主工作树验证 | Part 2 在 **LCUI HEAD 的独立 worktree** 里做（已实测可 configure + build） |
+| LCUI 工作树处于重构中间态（构建不过） | Part 2 无法在主工作树验证 | Part 2 直接在 **`plan/xmake-repo` 的 `tidy-cactus` 工作树**里做（已实测可 configure + build） |
 | lcui 合并包与独立子库包同时安装 → 两份 `yutil.h` | 头文件版本不一致，潜在 ABI 问题 | README 保留并强化「不要同时依赖」的警告，写明原因（合并包内的头是 LCUI 锁定版本，子库包独立版本） |
 | source scheme 从源码构建 LCUI 极慢 | CI 时长上升 | Part 3 完成后 lcui 走 binary；其它子库本来就是 source，CI 已如此 |
 | 裸名包（`css`/`ptk`/`ctest`）日后被 xmake 官方占用 | 官方仓库出现同名包 | 项目级 registry 优先（已实测）；必要时用 `add_requires("lcui-repo::css")` 显式指定，或届时改回前缀 |
@@ -503,15 +510,15 @@ node tests/run-c-smoke.mjs yutil
 
 ### Part 2
 
-在 **LCUI HEAD 的独立 worktree** 里（工作树当前处于重构中间态、构建不过）：
+在 **`plan/xmake-repo` 的工作树** `C:/Users/LC-So/.local/share/opencode/worktree/4e73da/tidy-cactus` 里（该树可直接 configure 与 build）：
 
 ```bash
 # 确认子库头随 lcui 一起被安装
 xmake f -y -k static -m release
 xmake build lcui
 xmake install -o dist/lcui-bin lcui
-ls dist/lcui-bin/include/            # 应看到 LCUI.h, LCUI/, yutil.h, yutil/, css.h, css/, ...
-ls dist/lcui-bin/lib/                # 应看到 lcui.lib（且体积远大于未合并时的 200KB）
+ls dist/lcui-bin/include/            # 应看到 LCUI.h、13 个顶层根头、9 个子目录
+ls dist/lcui-bin/lib/                # 应看到 lcui.lib，约 3.0 MB（未合并时约 724 KB）
 
 # 打包并核对 zip 顶层结构
 Compress-Archive -Path dist/lcui-bin/* -DestinationPath dist/lcui-3.0.0-windows-x64.zip

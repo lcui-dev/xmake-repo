@@ -9,7 +9,7 @@ sub-library releases never touch LCUI history.
 Consume it from any xmake project:
 
 ```lua
-add_repositories("lcui-repo https://github.com/lc-soft/lcui-xmake-repo.git")
+add_repositories("lcui-repo https://github.com/lcui-dev/xmake-repo.git")
 
 add_requires("lcui")            -- self-contained binary (lockstep w/ LCUI releases), git-build fallback
 add_requires("pandagl 1.0.0")  -- source-only, independently versioned

@@ -23,21 +23,12 @@ export function normalizeVersion(version) {
     return String(version).replace(/^v/, "");
 }
 
-export function bumpSemver(version, level) {
-    const m = String(version).match(/^(\d+)\.(\d+)\.(\d+)/);
-    if (!m) throw new Error(`cannot bump non-semver version: ${version}`);
-    let [major, minor, patch] = [+m[1], +m[2], +m[3]];
-    if (level === "major") { major++; minor = 0; patch = 0; }
-    else if (level === "minor") { minor++; patch = 0; }
-    else { patch++; }
-    return `${major}.${minor}.${patch}`;
-}
-
-export function decideBump({ recordedCommit, resolvedCommit, level }) {
-    if (!resolvedCommit) return { changed: false, doBump: false };
-    const changed = resolvedCommit !== recordedCommit;
-    const doBump = changed && !!recordedCommit; // first-time stamp: record, don't bump
-    return { changed, doBump };
+// The LCUI checkout owns the version numbers: versions.json in its root is the
+// single source of truth. This registry only mirrors them next to the resolved
+// source commit so `add_requires("pandagl 1.0.0")` installs the same version the
+// headers report.
+export function readSourceVersions(fs, source) {
+    return JSON.parse(fs.readFileSync(join(source, "versions.json"), "utf8"));
 }
 
 // Replace the hash on `source:add("versions", "<key>", "<hash>")`, or insert the
@@ -95,7 +86,6 @@ function parseArgs(argv) {
         if (a === "--source") args.source = argv[++i];
         else if (a === "--pkg") args.pkg = argv[++i];
         else if (a === "--ver") args.ver = argv[++i];
-        else if (a === "--bump") args.bump = argv[++i];
         else if (a === "--ref") args.ref = argv[++i];
         else if (a === "--sha") { const [k, v] = argv[++i].split("="); args.sha[k] = v; }
         else if (a === "--dry-run") args.dryRun = true;
@@ -109,22 +99,29 @@ export function run({ git, fs, cwd = process.cwd(), argv = [] }) {
     if (!args.source) throw new Error("--source <LCUI repo path> is required");
     const targets = args.pkg ? [args.pkg] : Object.keys(PACKAGES);
     const manifest = readManifest(cwd);
+    const sourceVersions = readSourceVersions(fs, args.source);
     const developCommit = git(args.source, ["rev-parse", "HEAD"]);
     const results = [];
     for (const pkg of targets) {
         const meta = PACKAGES[pkg];
         if (!meta) throw new Error(`unknown package: ${pkg}`);
-        const cur = manifest[pkg] || { version: "0.0.0", commit: "" };
         // auto mode: last commit that touched this package's source path (develop tip).
         const pathCommit = meta.srcPath ? git(args.source, ["log", "-n1", "--format=%H", "--", meta.srcPath]) : null;
         const releaseCommit = git(args.source, ["rev-parse", args.ref || "HEAD"]);
         let version, commit;
-        if (args.pkg && args.ver) { version = normalizeVersion(args.ver); commit = releaseCommit; } // explicit release (lcui tag)
-        else {
-            const d = decideBump({ recordedCommit: cur.commit, resolvedCommit: pathCommit, level: args.bump });
-            if (!d.changed) { results.push({ pkg, skipped: true }); continue; }
-            version = d.doBump ? bumpSemver(cur.version, args.bump || "patch") : cur.version;
-            commit = pathCommit;
+        if (args.pkg && args.ver) {
+            // explicit release (lcui tag or a deliberate sub-library release)
+            version = normalizeVersion(args.ver);
+            commit = releaseCommit;
+        } else {
+            version = sourceVersions[pkg];
+            if (!version) throw new Error(`versions.json is missing "${pkg}"`);
+            commit = meta.srcPath ? pathCommit : releaseCommit;
+        }
+        const cur = manifest[pkg];
+        if (cur && cur.version === version && cur.commit === commit) {
+            results.push({ pkg, skipped: true });
+            continue;
         }
         const path = join(cwd, meta.descriptor);
         let text = fs.readFileSync(path, "utf8");

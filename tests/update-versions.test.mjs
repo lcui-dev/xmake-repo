@@ -2,10 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import {
-    bumpSemver,
     applySourceUpdate,
     applyBinaryShaUpdate,
-    decideBump,
     run,
     normalizeVersion,
     PACKAGES,
@@ -23,12 +21,6 @@ const SUB_LIB = `package("pandagl")
         source:add("versions", "develop", "PENDING")
     end)
 `;
-
-test("bumpSemver patch/minor/major", () => {
-    assert.equal(bumpSemver("1.0.0", "patch"), "1.0.1");
-    assert.equal(bumpSemver("1.2.7", "minor"), "1.3.0");
-    assert.equal(bumpSemver("1.2.7", "major"), "2.0.0");
-});
 
 test("applySourceUpdate sets a new stable version + commit and refreshes develop", () => {
     const out = applySourceUpdate(SUB_LIB, { version: "1.0.0", commit: "a".repeat(40), develop: "b".repeat(40) });
@@ -53,18 +45,6 @@ test("applySourceUpdate is idempotent", () => {
     assert.equal(once, twice);
 });
 
-test("decideBump: only when the source commit changed", () => {
-    // no recorded commit yet -> stamp current version, no bump
-    assert.deepEqual(decideBump({ recordedCommit: "", resolvedCommit: "x", level: "patch" }),
-        { changed: true, doBump: false });
-    // changed -> bump
-    assert.deepEqual(decideBump({ recordedCommit: "x", resolvedCommit: "y", level: "patch" }),
-        { changed: true, doBump: true });
-    // same -> nothing to do
-    assert.deepEqual(decideBump({ recordedCommit: "y", resolvedCommit: "y", level: "patch" }),
-        { changed: false, doBump: false });
-});
-
 test("applyBinaryShaUpdate sets lcui per-platform alias shas for a version", () => {
     const LCUI = `    on_source(function (package)
         local binary = package:scheme("binary")
@@ -87,6 +67,8 @@ test("applyBinaryShaUpdate inserts missing alias lines", () => {
 
 test("run: lcui release sets stable=tag commit, develop=HEAD, applies binary shas, updates manifest", () => {
     const dir = mkdtempSync(join(tmpdir(), "reg-"));
+    const source = mkdtempSync(join(tmpdir(), "lcui-"));
+    writeFileSync(join(source, "versions.json"), '{"lcui":"3.0.0"}');
     mkdirSync(join(dir, "packages"), { recursive: true });
     writeFileSync(join(dir, "packages", "versions.json"), '{"lcui":{"version":"3.0.0","commit":""}}');
     mkdirSync(join(dir, "packages", "l", "lcui"), { recursive: true });
@@ -98,7 +80,7 @@ test("run: lcui release sets stable=tag commit, develop=HEAD, applies binary sha
         return "";
     };
     run({ git, fs: { readFileSync, writeFileSync }, cwd: dir, argv: [
-        "--source", "/x", "--pkg", "lcui", "--ver", "3.1.0", "--ref", "v3.1.0",
+        "--source", source, "--pkg", "lcui", "--ver", "3.1.0", "--ref", "v3.1.0",
         "--sha", "windows-x64=AA", "--sha", "linux-x64=BB",
     ] });
     const desc = readFileSync(join(dir, "packages", "l", "lcui", "xmake.lua"), "utf8");
@@ -115,6 +97,27 @@ test("normalizeVersion strips a leading v from release tags", () => {
     assert.equal(normalizeVersion("v3.1.0"), "3.1.0");
     assert.equal(normalizeVersion("3.1.0"), "3.1.0");
     assert.equal(normalizeVersion("v3.1.0-rc1"), "3.1.0-rc1");
+});
+
+test("run: sub-library version comes from the LCUI versions.json", () => {
+    const dir = mkdtempSync(join(tmpdir(), "reg-"));
+    const source = mkdtempSync(join(tmpdir(), "lcui-"));
+    writeFileSync(join(source, "versions.json"), '{"pandagl":"1.2.3","lcui":"3.1.0"}');
+    mkdirSync(join(dir, "packages", "p", "pandagl"), { recursive: true });
+    writeFileSync(join(dir, "packages", "versions.json"), '{"pandagl":{"version":"1.0.0","commit":""}}');
+    writeFileSync(join(dir, "packages", "p", "pandagl", "xmake.lua"), SUB_LIB);
+    const git = (_src, a) => {
+        if (a[0] === "rev-parse" && a[1] === "HEAD") return "DEVELOP_TIP";
+        if (a[0] === "log") return "PANDAGL_COMMIT";
+        return "";
+    };
+    run({ git, fs: { readFileSync, writeFileSync }, cwd: dir, argv: ["--source", source, "--pkg", "pandagl"] });
+    const desc = readFileSync(join(dir, "packages", "p", "pandagl", "xmake.lua"), "utf8");
+    assert.match(desc, /source:add\("versions", "1\.2\.3", "PANDAGL_COMMIT"\)/);
+    assert.match(desc, /source:add\("versions", "develop", "DEVELOP_TIP"\)/);
+    const man = JSON.parse(readFileSync(join(dir, "packages", "versions.json"), "utf8"));
+    assert.equal(man.pandagl.version, "1.2.3");
+    assert.equal(man.pandagl.commit, "PANDAGL_COMMIT");
 });
 
 test("registry package names stay in sync across manifest, PACKAGES map and descriptors", () => {

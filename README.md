@@ -40,23 +40,29 @@ The sub-library packages dropped the `lcui-` prefix:
 
 ## Version manifest
 
-`packages/versions.json` is the single source of truth for each package's current
-version + the LCUI git commit its source checks out:
+`packages/versions.json` mirrors the versions declared by the LCUI source
+repository and records the git commit each package checks out. The single source
+of truth for **version numbers** is `versions.json` in the LCUI repository:
 
 ```json
-{ "pandagl": { "version": "1.0.0", "commit": "<40-hex>" }, "lcui": { "version": "3.0.0", "commit": "" } }
+{ "pandagl": "1.0.0", "lcui": "3.0.0-alpha.0" }
 ```
+
+This registry mirrors that file so `add_requires("pandagl 1.0.0")` installs the
+same version the headers report. Only the commit for each package is resolved
+here.
 
 ## Updating versions — `scripts/update-versions.mjs`
 
-Given a local LCUI checkout, it resolves each package's latest source commit
-(`git -C <source> log -n1 --format=%H -- <lib path>`), bumps the version when the
-source changed, rewrites the descriptor's source `add_versions` (and `develop`
-line) and `versions.json`.
+Given a local LCUI checkout, it reads `versions.json` from that checkout, resolves
+each package's latest source commit
+(`git -C <source> log -n1 --format=%H -- <lib path>`), rewrites the descriptor's
+source `add_versions` (and `develop` line) and `packages/versions.json`.
 
 ```bash
-node scripts/update-versions.mjs --source /path/to/LCUI            # bump changed sub-libs (patch)
-node scripts/update-versions.mjs --source /path/to/LCUI --pkg pandagl --bump minor
+node scripts/update-versions.mjs --source /path/to/LCUI            # mirror versions.json + commits
+node scripts/update-versions.mjs --source /path/to/LCUI --pkg pandagl
+# explicit release override (lcui tag or a deliberate sub-library release)
 node scripts/update-versions.mjs --source /path/to/LCUI --pkg pandagl --ver 1.2.0
 # lcui release: pin source to the tag + set binary shas produced by CI
 node scripts/update-versions.mjs --source /path/to/LCUI --pkg lcui --ver 3.1.0 --ref v3.1.0 \
@@ -64,6 +70,8 @@ node scripts/update-versions.mjs --source /path/to/LCUI --pkg lcui --ver 3.1.0 -
 ```
 
 Rules the tool enforces:
+- Version numbers come from the LCUI checkout's `versions.json`; bump them there
+  first, then run this tool.
 - A git **source** build needs a real 40-hex commit — the tool never leaves
   `PENDING` on a pushed source version/develop line.
 - `lcui` binary alias shas come from CI after the zip is uploaded to GitHub
